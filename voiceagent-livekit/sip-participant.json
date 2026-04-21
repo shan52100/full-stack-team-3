@@ -1,0 +1,9 @@
+{
+  "sip_trunk_id": "ST_AoGHD8TuF73a",
+  "sip_call_to": "+918148375380",
+  "room_name": "test-adaptive-interruption",
+  "participant_identity": "phone-user",
+  "participant_name": "Shan",
+  "krisp_enabled": true,
+  "wait_until_answered": true
+}

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Node.js Web Server</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 700px; margin: 40px auto; padding: 20px; background: #f4f4f4; }
+        h1 { color: #339933; }
+        ul { background: white; padding: 20px 40px; border-radius: 8px; }
+        li { margin: 10px 0; }
+        a { color: #0066cc; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        code { background: #eee; padding: 2px 6px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <h1>Node.js Built-in Modules Demo</h1>
+    <p>Pure Node.js server using <code>http</code>, <code>fs</code>, <code>path</code>, and <code>url</code> modules.</p>
+    <h2>Try these routes:</h2>
+    <ul>
+        <li><a href="/about">/about</a> - Simple about page</li>
+        <li><a href="/greet?name=Student">/greet?name=Student</a> - URL query parameters</li>
+        <li><a href="/readfile">/readfile</a> - Read file using fs</li>
+        <li><a href="/writefile?text=HelloNode">/writefile?text=HelloNode</a> - Write file using fs</li>
+        <li><a href="/info">/info</a> - Request info (JSON)</li>
+    </ul>
+</body>
+</html>

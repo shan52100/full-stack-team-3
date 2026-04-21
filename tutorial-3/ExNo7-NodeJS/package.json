@@ -1,0 +1,11 @@
+{
+  "name": "exno7-nodejs-webserver",
+  "version": "1.0.0",
+  "description": "ExNo:7 - Node.js based web development using built-in modules (http, fs, path, url)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "author": "Tutorial-3",
+  "license": "ISC"
+}

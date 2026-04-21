@@ -1,0 +1,15 @@
+{
+  "name": "exno8-expressjs-webserver",
+  "version": "1.0.0",
+  "description": "ExNo:8 - Express.js based web development with fs, path, and REST APIs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "mongoose": "^9.4.1"
+  },
+  "author": "Tutorial-3",
+  "license": "ISC"
+}

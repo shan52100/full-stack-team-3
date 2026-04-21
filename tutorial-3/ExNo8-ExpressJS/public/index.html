@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Express.js Demo</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 30px auto; padding: 20px; background: #f0f4f8; }
+        h1 { color: #2d7a2d; }
+        h2 { color: #333; margin-top: 30px; }
+        .card { background: white; padding: 20px; border-radius: 8px; margin: 15px 0; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        form { display: flex; flex-direction: column; gap: 10px; }
+        input, textarea, button { padding: 10px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; }
+        button { background: #2d7a2d; color: white; border: none; cursor: pointer; }
+        button:hover { background: #1f5a1f; }
+        code { background: #eef; padding: 2px 6px; border-radius: 3px; }
+        ul li { margin: 8px 0; }
+        a { color: #0066cc; }
+    </style>
+</head>
+<body>
+    <h1>Express.js - ExNo:8</h1>
+    <p>Express.js demo using routing, middleware, <code>fs</code>, <code>path</code>, and REST APIs.</p>
+
+    <div class="card">
+        <h2>Try these GET routes:</h2>
+        <ul>
+            <li><a href="/about">/about</a></li>
+            <li><a href="/greet/Student">/greet/Student</a> - Route parameter</li>
+            <li><a href="/users">/users</a> - All users (JSON)</li>
+            <li><a href="/file">/file</a> - Read file via fs</li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h2>Submit a form (POST /form):</h2>
+        <form action="/form" method="POST">
+            <input type="text" name="username" placeholder="Your name" required />
+            <textarea name="message" placeholder="Your message" required></textarea>
+            <button type="submit">Submit</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <h2>Create a user (POST /users):</h2>
+        <form id="userForm">
+            <input type="text" id="name" placeholder="Name" required />
+            <input type="email" id="email" placeholder="Email" required />
+            <button type="submit">Add User</button>
+        </form>
+        <pre id="result"></pre>
+    </div>
+
+    <div class="card" style="border-left: 5px solid #47a248;">
+        <h2>🍃 MongoDB: Create Student (POST /mongo/students)</h2>
+        <p>Saves to MongoDB database <code>tutorial3_db</code>, collection <code>students</code>.</p>
+        <form id="mongoForm">
+            <input type="text" id="sname" placeholder="Name" required />
+            <input type="text" id="rollNo" placeholder="Roll No" required />
+            <input type="text" id="course" placeholder="Course (optional)" />
+            <input type="number" id="marks" placeholder="Marks" />
+            <button type="submit" style="background:#47a248;">Save to MongoDB</button>
+        </form>
+        <pre id="mongoResult"></pre>
+        <p><a href="/mongo/students" target="_blank">View all students (JSON)</a></p>
+    </div>
+
+    <script>
+        document.getElementById('userForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('name').value;
+            const email = document.getElementById('email').value;
+            const res = await fetch('/users', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, email })
+            });
+            const data = await res.json();
+            document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+        });
+
+        document.getElementById('mongoForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const payload = {
+                name: document.getElementById('sname').value,
+                rollNo: document.getElementById('rollNo').value,
+                course: document.getElementById('course').value || undefined,
+                marks: Number(document.getElementById('marks').value) || 0
+            };
+            const res = await fetch('/mongo/students', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            document.getElementById('mongoResult').textContent = JSON.stringify(data, null, 2);
+        });
+    </script>
+</body>
+</html>

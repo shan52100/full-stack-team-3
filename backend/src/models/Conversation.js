@@ -57,6 +57,11 @@ const conversationSchema = new mongoose.Schema({
     default: '',
   },
   transcript: [transcriptEntrySchema],
+  status: {
+    type: String,
+    enum: ['active', 'completed'],
+    default: 'active',
+  },
   // LiveKit room/call info
   roomName: {
     type: String,

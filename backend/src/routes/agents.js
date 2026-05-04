@@ -7,11 +7,13 @@ import {
   deleteAgent,
   toggleAgentStatus,
   startCall,
+  streamAgents,
 } from '../controllers/agentController.js';
 import { protect } from '../middleware/auth.js';
 
 const router = Router();
 
+router.get('/stream', protect, streamAgents);
 router.get('/', protect, getAgents);
 router.get('/:id', protect, getAgent);
 router.post('/', protect, createAgent);

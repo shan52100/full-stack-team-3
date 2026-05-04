@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Plus, MoreVertical, Play, Pause, Settings, Trash2, Bot, Phone, PhoneOff } from 'lucide-react';
+import { Plus, Play, Pause, Trash2, Bot, Phone, Radio } from 'lucide-react';
 import { agents as agentsApi, type Agent } from '../services/api';
+import { useAgentsStream } from '../hooks/useAgentsStream';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { EmptyState } from '../components/EmptyState';
@@ -14,6 +15,11 @@ export function Agents() {
   const [pageLoading, setPageLoading] = useState(true);
   const [callingAgentId, setCallingAgentId] = useState<string | null>(null);
 
+  useAgentsStream((agents) => {
+    setAgentList(agents);
+    setPageLoading(false);
+  });
+
   // Call modal state
   const [callModalAgent, setCallModalAgent] = useState<Agent | null>(null);
   const [callPhoneNumber, setCallPhoneNumber] = useState('');
@@ -26,24 +32,16 @@ export function Agents() {
   const [formInstructions, setFormInstructions] = useState('');
   const [formPhoneNumber, setFormPhoneNumber] = useState('');
 
+  // Fallback: if SSE hasn't loaded in 3s, stop spinner
   useEffect(() => {
-    loadAgents();
+    const t = setTimeout(() => setPageLoading(false), 3000);
+    return () => clearTimeout(t);
   }, []);
 
-  async function loadAgents() {
-    try {
-      const data = await agentsApi.list();
-      setAgentList(data);
-    } catch {
-      console.warn('API unavailable');
-    } finally {
-      setPageLoading(false);
-    }
-  }
-
-  const handleToggleAgent = async (agentId: string, agentName: string, currentStatus: string) => {
+  const handleToggleAgent = async (agentId: string, agentName: string) => {
     try {
       const updated = await agentsApi.toggle(agentId);
+      // SSE will push the updated list; optimistic local update for instant feedback
       setAgentList(prev => prev.map(a => (a._id === agentId ? updated : a)));
       const newStatus = updated.status === 'active' ? 'activated' : 'paused';
       toast.success(`${agentName} ${newStatus} successfully`);
@@ -56,6 +54,7 @@ export function Agents() {
     setIsLoading(true);
     try {
       await agentsApi.delete(agentId);
+      // SSE will push the updated list; also do optimistic local remove
       setAgentList(prev => prev.filter(a => a._id !== agentId));
       toast.success('Agent deleted successfully');
     } catch (err: any) {
@@ -127,7 +126,13 @@ export function Agents() {
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-semibold text-gray-900">Voice Agents</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-semibold text-gray-900">Voice Agents</h1>
+            <span className="flex items-center gap-1.5 text-xs text-green-600 font-medium">
+              <Radio className="w-3.5 h-3.5" />
+              Live
+            </span>
+          </div>
           <p className="text-gray-600 mt-1">Manage and configure your AI voice agents</p>
         </div>
         <button
@@ -216,7 +221,7 @@ export function Agents() {
                   )}
                 </button>
                 <button
-                  onClick={() => handleToggleAgent(agent._id, agent.name, agent.status)}
+                  onClick={() => handleToggleAgent(agent._id, agent.name)}
                   className={`px-3 py-2 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
                     agent.status === 'active' ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
                   }`}

@@ -1,50 +1,75 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Phone, TrendingUp, Clock, CheckCircle, RefreshCw } from 'lucide-react';
 import { StatCard } from '../components/StatCard';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { analytics, type Conversation } from '../services/api';
 import { LoadingSpinner } from '../components/LoadingSpinner';
-
-const POLL_INTERVAL = 15000; // refresh every 15 seconds
+import { LiveDuration } from '../components/LiveDuration';
+import { useAnalyticsStream } from '../hooks/useAnalyticsStream';
 
 export function Dashboard() {
-  const [stats, setStats] = useState({ totalCallsToday: 0, callChange: 0, successRate: 0, avgDuration: '0:00', activeAgents: 0, trainingAgents: 0 });
+  const [stats, setStats] = useState({
+    totalCallsToday: 0, callChange: 0, successRate: 0,
+    avgDuration: '0:00', activeAgents: 0, trainingAgents: 0,
+  });
   const [callVolume, setCallVolume] = useState<{ date: string; calls: number }[]>([]);
   const [successRate, setSuccessRate] = useState<{ date: string; rate: number }[]>([]);
   const [recentConvs, setRecentConvs] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [live, setLive] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  async function load(silent = false) {
-    if (!silent) setLoading(true);
-    else setRefreshing(true);
+  const loadCharts = useCallback(async () => {
     try {
-      const [dashData, volData, rateData, recentData] = await Promise.all([
+      const [volData, rateData] = await Promise.all([
+        analytics.callVolume(),
+        analytics.successRate(),
+      ]);
+      setCallVolume(volData);
+      setSuccessRate(rateData);
+    } catch (_) {}
+  }, []);
+
+  useEffect(() => {
+    analytics.dashboard().then(d => {
+      setStats(d);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+    loadCharts();
+  }, [loadCharts]);
+
+  // Charts refresh every 30s (less volatile than stats)
+  useEffect(() => {
+    const t = setInterval(loadCharts, 30000);
+    return () => clearInterval(t);
+  }, [loadCharts]);
+
+  useAnalyticsStream((payload) => {
+    setStats(payload.stats);
+    setRecentConvs(payload.recent as Conversation[]);
+    setLastUpdated(new Date());
+    setLive(true);
+    if (loading) setLoading(false);
+  });
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const [d, volData, rateData, recentData] = await Promise.all([
         analytics.dashboard(),
         analytics.callVolume(),
         analytics.successRate(),
         analytics.recent(),
       ]);
-      setStats(dashData);
+      setStats(d);
       setCallVolume(volData);
       setSuccessRate(rateData);
-      setRecentConvs(recentData);
+      setRecentConvs(recentData as Conversation[]);
       setLastUpdated(new Date());
-    } catch (err: any) {
-      console.error('Failed to load dashboard:', err.message);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }
-
-  useEffect(() => {
-    load(false);
-    timerRef.current = setInterval(() => load(true), POLL_INTERVAL);
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, []);
+    } catch (_) {}
+    setRefreshing(false);
+  };
 
   if (loading) {
     return <div className="flex items-center justify-center h-64"><LoadingSpinner /></div>;
@@ -58,13 +83,22 @@ export function Dashboard() {
           <p className="text-gray-600 mt-1">Overview of your voice agent performance</p>
         </div>
         <div className="flex items-center gap-3">
+          {live && (
+            <span className="flex items-center gap-1.5 text-xs text-green-600 font-medium">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+              </span>
+              Live
+            </span>
+          )}
           {lastUpdated && (
             <span className="text-xs text-gray-400 hidden sm:block">
               Updated {lastUpdated.toLocaleTimeString()}
             </span>
           )}
           <button
-            onClick={() => load(true)}
+            onClick={handleRefresh}
             disabled={refreshing}
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
           >
@@ -74,7 +108,6 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
         <StatCard
           title="Total Calls Today"
@@ -110,7 +143,6 @@ export function Dashboard() {
         />
       </div>
 
-      {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
         <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
           <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Call Volume (Last 7 Days)</h2>
@@ -120,7 +152,7 @@ export function Dashboard() {
               <XAxis dataKey="date" stroke="#6b7280" fontSize={12} />
               <YAxis stroke="#6b7280" fontSize={12} />
               <Tooltip />
-              <Line type="monotone" dataKey="calls" stroke="#3b82f6" strokeWidth={2} />
+              <Line type="monotone" dataKey="calls" stroke="#3b82f6" strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -133,16 +165,16 @@ export function Dashboard() {
               <XAxis dataKey="date" stroke="#6b7280" fontSize={12} />
               <YAxis stroke="#6b7280" fontSize={12} domain={[0, 100]} />
               <Tooltip />
-              <Line type="monotone" dataKey="rate" stroke="#10b981" strokeWidth={2} />
+              <Line type="monotone" dataKey="rate" stroke="#10b981" strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      {/* Recent Conversations */}
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
+        <div className="px-4 sm:px-6 py-4 border-b border-gray-200 flex items-center justify-between">
           <h2 className="text-base sm:text-lg font-semibold text-gray-900">Recent Conversations</h2>
+          {live && <span className="text-xs text-green-600 font-medium">● Live</span>}
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -156,11 +188,17 @@ export function Dashboard() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {recentConvs.map((conv) => (
+              {recentConvs.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-8 text-center text-sm text-gray-400">No conversations yet</td>
+                </tr>
+              ) : recentConvs.map((conv) => (
                 <tr key={conv._id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900">{conv.customerName}</td>
                   <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-600">{conv.agentName}</td>
-                  <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-600">{conv.duration}</td>
+                  <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                    <LiveDuration status={conv.status ?? 'completed'} duration={conv.duration} createdAt={conv.createdAt} />
+                  </td>
                   <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
                       conv.outcome === 'success' ? 'bg-green-100 text-green-700'

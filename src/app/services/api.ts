@@ -1,4 +1,4 @@
-const API_BASE = '/api';
+const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api';
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = localStorage.getItem('token');
@@ -81,10 +81,14 @@ export interface Conversation {
   id?: string;
   agentName: string;
   customerName: string;
+  customerPhone?: string;
   duration: string;
+  durationSeconds?: number;
   outcome: 'success' | 'transferred' | 'failed';
   sentiment: 'positive' | 'neutral' | 'negative';
   summary: string;
+  status: 'active' | 'completed';
+  roomName?: string;
   transcript?: { role: string; text: string; timestamp?: string }[];
   createdAt: string;
   timestamp?: string;

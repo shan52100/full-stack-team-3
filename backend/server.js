@@ -29,8 +29,17 @@ const PORT = process.env.PORT || 5000;
 connectDB();
 
 // Middleware
+const allowedOrigins = [
+  process.env.FRONTEND_URL || 'http://localhost:5173',
+  'http://localhost:5173',
+  /^https:\/\/.*\.vercel\.app$/,
+];
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true);
+    const ok = allowedOrigins.some(o => typeof o === 'string' ? o === origin : o.test(origin));
+    cb(ok ? null : new Error('Not allowed by CORS'), ok);
+  },
   credentials: true,
 }));
 app.use(express.json());

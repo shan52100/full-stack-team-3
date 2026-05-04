@@ -5,6 +5,7 @@ import Agent from '../models/Agent.js';
 import Conversation from '../models/Conversation.js';
 import { createOutboundCall } from '../services/livekitService.js';
 import { roomService, agentDispatchClient } from '../config/livekit.js';
+import sseEmitter from '../utils/sseEmitter.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Resolve: controllers → src → backend → project root → voiceagent-livekit
@@ -53,6 +54,40 @@ export function ensureAgentWorkerRunning() {
   });
 }
 
+export async function streamAgents(req, res) {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders();
+
+  const userId = req.user._id;
+
+  const send = async (eventType = 'update') => {
+    try {
+      const agents = await Agent.find({ createdBy: userId }).sort({ createdAt: -1 });
+      res.write(`event: ${eventType}\ndata: ${JSON.stringify({ agents })}\n\n`);
+    } catch (_) {}
+  };
+
+  await send('init');
+
+  const heartbeat = setInterval(() => {
+    res.write(`event: heartbeat\ndata: {}\n\n`);
+  }, 10000);
+
+  const onUpdate = (uid) => {
+    if (uid.toString() === userId.toString()) send('update');
+  };
+  sseEmitter.on('agents_update', onUpdate);
+
+  req.on('close', () => {
+    clearInterval(heartbeat);
+    sseEmitter.off('agents_update', onUpdate);
+    res.end();
+  });
+}
+
 export async function getAgents(req, res, next) {
   try {
     const agents = await Agent.find({ createdBy: req.user._id }).sort({ createdAt: -1 });
@@ -92,6 +127,7 @@ export async function createAgent(req, res, next) {
     // Start the agent worker when an agent is created (idempotent — only starts once)
     ensureAgentWorkerRunning();
 
+    if (agent.createdBy) sseEmitter.emit('agents_update', agent.createdBy);
     res.status(201).json(agent);
   } catch (error) {
     next(error);
@@ -108,6 +144,7 @@ export async function updateAgent(req, res, next) {
     if (!agent) {
       return res.status(404).json({ error: 'Agent not found' });
     }
+    if (agent.createdBy) sseEmitter.emit('agents_update', agent.createdBy);
     res.json(agent);
   } catch (error) {
     next(error);
@@ -120,6 +157,7 @@ export async function deleteAgent(req, res, next) {
     if (!agent) {
       return res.status(404).json({ error: 'Agent not found' });
     }
+    if (agent.createdBy) sseEmitter.emit('agents_update', agent.createdBy);
     res.json({ message: 'Agent deleted successfully' });
   } catch (error) {
     next(error);
@@ -135,6 +173,8 @@ export async function toggleAgentStatus(req, res, next) {
 
     agent.status = agent.status === 'active' ? 'inactive' : 'active';
     await agent.save();
+    sseEmitter.emit('stats_update', agent.createdBy);
+    sseEmitter.emit('agents_update', agent.createdBy);
 
     res.json(agent);
   } catch (error) {
@@ -221,6 +261,7 @@ export async function startCall(req, res, next) {
     agent.callsHandled += 1;
     agent.status = 'active';
     await agent.save();
+    sseEmitter.emit('agents_update', req.user._id);
 
     res.json({
       message: `Calling ${phoneNumber}...`,
